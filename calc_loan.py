@@ -1,10 +1,10 @@
 
-from property import Property
+import csv
+
+import xlsxwriter
 
 from constants import *
-
-import csv
-import xlsxwriter
+from property import Property
 
 
 class LandlordPropertyCalculator(object):
@@ -18,16 +18,12 @@ class LandlordPropertyCalculator(object):
 
 
     def read_csv_input(self, input_path):
-        # TODO - read from file
-        # return SAMPLE_INPUT
         with open(input_path, 'rt') as input_file:
             reader = csv.DictReader(input_file)
 
             return [
                 row for row in reader
             ]
-            # for row in reader:
-            #     print(row)
 
     def read_input(self):
         try:
@@ -38,9 +34,9 @@ class LandlordPropertyCalculator(object):
             return False
 
         input_data = reader(self, self.input_path)
-        available_properties = []
-        for prop in input_data:
-            available_properties.append(Property(**prop))
+        available_properties = [
+            Property(**prop) for prop in input_data
+        ]
 
         return available_properties
 
@@ -61,9 +57,9 @@ class LandlordPropertyCalculator(object):
                 min_downpayment_percent=20,
                 max_downpayment_percent=100,
             )
-            if prop.local_max_roi > self.global_max_roi:
-                self.global_max_roi = prop.local_max_roi
-                self.global_max_stats = prop.local_max_stats
+            if prop.max_roi > self.global_max_roi:
+                self.global_max_roi = prop.max_roi
+                self.global_max_stats = prop.max_stats
 
         return {
             'properties': available_properties,
@@ -202,20 +198,34 @@ class XLSXWriter(object):
 
         worksheet.write('B3', 'Price', header_blue_format)
         worksheet.write('C3', 'Monthly Rent', header_blue_format)
-        worksheet.write('D3', 'Area', header_blue_format)
-        worksheet.write('E3', 'Extra Onetime Expense', header_blue_format)
-        worksheet.write('F3', 'Url', header_blue_format)
-        worksheet.write('G3', 'Annual Rent', header_blue_format)
+
+        worksheet.write('D3', 'Reletting Factor', header_blue_format)
+        worksheet.write('E3', 'Gov Tax Discount', header_blue_format)
+        worksheet.write('F3', 'Annual Gov Tax', header_blue_format)
+        worksheet.write('G3', 'Monthly Total Expenses', header_blue_format)
+        worksheet.write('H3', 'afterloan_monthly_income', header_blue_format)
+
+        worksheet.write('I3', 'Area', header_blue_format)
+        worksheet.write('J3', 'Extra Onetime Expense', header_blue_format)
+        worksheet.write('K3', 'Url', header_blue_format)
+        worksheet.write('L3', 'Annual Rent', header_blue_format)
 
     def write_prop_basics_data(self, prop, worksheet):
         center_wrapped = self.formats['center_wrapped']
 
         worksheet.write_number('B4', prop.price, center_wrapped)
         worksheet.write_number('C4', prop.rent, center_wrapped)
-        worksheet.write_number('D4', prop.area, center_wrapped)
-        worksheet.write_number('E4', prop.extra_onetime_expense, center_wrapped)
-        worksheet.write_url('F4', prop.url, self.formats['center'])
-        worksheet.write_number('G4', prop.annual_rent, center_wrapped)
+
+        worksheet.write_number('D4', prop.reletting_factor, center_wrapped)
+        worksheet.write_number('E4', prop.gov_tax_discount, center_wrapped)
+        worksheet.write_number('F4', prop.expense_annual_govt_tax, center_wrapped)
+        worksheet.write_number('G4', prop.expense_total_monthly, center_wrapped)
+        worksheet.write_number('H4', prop.afterloan_monthly_income, center_wrapped)
+
+        worksheet.write_number('I4', prop.area, center_wrapped)
+        worksheet.write_number('J4', prop.extra_onetime_expense, center_wrapped)
+        worksheet.write_url('K4', prop.url, self.formats['center'])
+        worksheet.write_number('L4', prop.annual_rent, center_wrapped)
 
     def write_prop_winner_roi(self, prop, worksheet):
         title_format = self.create_vcenter_wrapped_format()
@@ -224,12 +234,12 @@ class XLSXWriter(object):
         worksheet.merge_range(
             'B7:E7',
             'WINNER Immediate ROI   -->   Annual ROI: {:.2f}%'.format(
-                prop.local_max_roi * 100.00,
+                prop.max_roi * 100.00,
             ),
             title_format,
         )
 
-        worksheet.merge_range('B8:E25', str(prop.local_max_stats), self.formats['vcenter_wrapped'])
+        worksheet.merge_range('B8:E25', str(prop.max_stats), self.formats['vcenter_wrapped'])
 
     def write_prop_winner_roi_x_years(self, prop, worksheet):
         title_format = self.create_vcenter_wrapped_format()
@@ -238,12 +248,12 @@ class XLSXWriter(object):
         worksheet.merge_range(
             'B28:E28',
             'WINNER X-Years ROI   -->   Annual ROI: {:.2f}%'.format(
-                prop.local_max_stats_x_years.x_years_avg_annual_roi * 100.00,
+                prop.max_stats_x_years.x_years_avg_annual_roi * 100.00,
             ),
             title_format,
         )
 
-        worksheet.merge_range('B29:E46', str(prop.local_max_stats_x_years), self.formats['vcenter_wrapped'])
+        worksheet.merge_range('B29:E46', str(prop.max_stats_x_years), self.formats['vcenter_wrapped'])
 
 
     def write_permutation(self, permutation, worksheet, cell_row, cell_col):
@@ -269,6 +279,8 @@ class XLSXWriter(object):
         worksheet.write(cell_row, cell_col, content, cell_format)
 
     def get_roi_color(self, permutation):
+        # TODO - coloring needs revesiting
+
         # 10 years bg_color
         # range -15% to 15% for red and green ??
         # immediate border color
@@ -279,28 +291,10 @@ class XLSXWriter(object):
         immediate_ROI = min(range_roi, max(-range_roi, permutation.annual_ROI * 100.00))
         x_years_ROI = min(range_roi, max(-range_roi, permutation.x_years_avg_annual_roi * 100.00))
 
-        # import ipdb; ipdb.set_trace()
-
         red = min(max(int(((range_roi - immediate_ROI)/range_roi) * range_rgb), 0), 255)
         green = min(max(int((x_years_ROI/range_roi) * range_rgb), 0), 255)
 
         return '#%02x%02x%02x' % (red, green, 0)
-
-        # if roi >= 0.025:
-        #     return {
-        #         'bg': 'green',
-        #         'font': 'white',
-        #     }
-        # elif roi > 0.00:
-        #     return {
-        #         'bg': 'yellow',
-        #         'font': 'black',
-        #     }
-        # else:
-        #     return {
-        #         'bg': 'red',
-        #         'font': 'white',
-        #     }
 
 
 if __name__ == '__main__':
