@@ -2,6 +2,7 @@ import math
 
 from exceptions import ExceededMaxDownpayment
 from exceptions import ExceededMaxMonthlyInstallment
+from exceptions import LessThanMinmumLoanPrincipal
 
 from constants import *
 
@@ -30,6 +31,9 @@ class Permutation(object):
             raise ExceededMaxDownpayment()
 
         self.loan_principal = self.parent_prop.price - self.downpayment
+        if 0 < self.loan_principal < MINIMUM_LOAN_PRINCIPAL:
+            raise LessThanMinmumLoanPrincipal()
+
         self.num_payments = self.num_years * MONTHS
 
         self.calc_loan_fees()
@@ -136,3 +140,7 @@ class ExceededMaxMonthlyInstallmentPermutation(Permutation):
     def __repr__(self):
         return 'Exceeded Max Monthly Installment {}'.format(MAX_MONTHLY_INSTALLMENT)
 
+
+class LessThanMinmumLoanPrincipalPermutation(Permutation):
+    def __repr__(self):
+        return 'Less than minimum loan principal {}'.format(MINIMUM_LOAN_PRINCIPAL)

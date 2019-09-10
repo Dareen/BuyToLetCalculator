@@ -2,10 +2,12 @@ from collections import defaultdict
 
 from permutation import ExceededMaxDownpaymentPermutation
 from permutation import ExceededMaxMonthlyInstallmentPermutation
+from permutation import LessThanMinmumLoanPrincipalPermutation
 from permutation import Permutation
 from permutation import PermutationFactory
 from exceptions import ExceededMaxDownpayment
 from exceptions import ExceededMaxMonthlyInstallment
+from exceptions import LessThanMinmumLoanPrincipal
 
 from constants import *
 
@@ -67,6 +69,12 @@ class Property(object):
                     break
                 except ExceededMaxMonthlyInstallment:
                     self.permutation_stats[num_years][downpayment_percent] = ExceededMaxMonthlyInstallmentPermutation(
+                        parent_prop=self,
+                        num_years=num_years,
+                        downpayment_percent=downpayment_percent,
+                    )
+                except LessThanMinmumLoanPrincipal:
+                    self.permutation_stats[num_years][downpayment_percent] = LessThanMinmumLoanPrincipalPermutation(
                         parent_prop=self,
                         num_years=num_years,
                         downpayment_percent=downpayment_percent,
