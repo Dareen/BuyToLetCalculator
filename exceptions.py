@@ -3,3 +3,6 @@ class ExceededMaxDownpayment(Exception):
 
 class ExceededMaxMonthlyInstallment(Exception):
     pass
+
+class LessThanMinmumLoanPrincipal(Exception):
+    pass
